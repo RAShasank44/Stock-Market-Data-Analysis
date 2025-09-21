@@ -10,6 +10,11 @@ st.title("📈 Stock Market Analysis Dashboard")
 # -------------------------------
 data_source = st.sidebar.radio("Select Data Source", ["Upload CSV", "Yahoo Finance"])
 
+df = None
+
+# -------------------------------
+# CSV Upload
+# -------------------------------
 if data_source == "Upload CSV":
     uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
     if uploaded_file is not None:
@@ -17,26 +22,38 @@ if data_source == "Upload CSV":
     else:
         st.warning("Please upload a CSV file to continue.")
         st.stop()
+
+# -------------------------------
+# Yahoo Finance Download
+# -------------------------------
 else:
     ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
     start_date = st.sidebar.date_input("Start Date", value=pd.to_datetime("2020-01-01"))
     end_date = st.sidebar.date_input("End Date", value=pd.to_datetime("2023-01-01"))
 
     @st.cache_data
-    def load_data(ticker, start, end):
-        data = yf.download(ticker, start=start, end=end)
-        data.reset_index(inplace=True)
-        # Flatten MultiIndex if present
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = ['_'.join([str(c) for c in col]).strip() for col in data.columns.values]
-        return data
+    def load_yf_data(ticker, start, end):
+        try:
+            data = yf.download(ticker, start=start, end=end, auto_adjust=False)
+            if data.empty:
+                return None
+            data.reset_index(inplace=True)
+            # Flatten MultiIndex if present
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = ['_'.join([str(c) for c in col]).strip() for col in data.columns.values]
+            return data
+        except Exception:
+            return None
 
-    df = load_data(ticker, start_date, end_date)
+    df = load_yf_data(ticker, start_date, end_date)
+    if df is None or df.empty:
+        st.error(f"Failed to fetch data for ticker '{ticker}'. Check the symbol or date range.")
+        st.stop()
 
 # -------------------------------
 # Detect price column
 # -------------------------------
-price_candidates = ['Adj Close']
+price_candidates = ['Adj Close', 'AdjClose', 'Close', 'close', 'ClosePrice']
 price_col = None
 for col in price_candidates:
     if col in df.columns:
