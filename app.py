@@ -9,11 +9,26 @@ st.title("📈 Stock Market Analysis - Flexible Date Option")
 # -------------------------------
 uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 if uploaded_file is None:
-    st.warning("Please upload a CSV file with at least 'Close' column.")
+    st.warning("Please upload a CSV file with at least one numeric column (e.g., Close).")
     st.stop()
 
 df = pd.read_csv(uploaded_file)
 st.write("Columns detected:", df.columns.tolist())
+
+# -------------------------------
+# Convert numeric columns
+# -------------------------------
+numeric_cols = []
+for col in df.columns:
+    try:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        numeric_cols.append(col)
+    except:
+        pass
+
+if not numeric_cols:
+    st.error("No numeric columns found in the CSV.")
+    st.stop()
 
 # -------------------------------
 # User selects mode
@@ -21,13 +36,12 @@ st.write("Columns detected:", df.columns.tolist())
 mode = st.radio("Select Mode:", ["With Date", "Without Date"])
 
 # -------------------------------
-# Columns check
+# Select Price Column
 # -------------------------------
-price_col = st.selectbox("Select Price Column:", df.columns.tolist(), index=df.columns.get_loc('Close') if 'Close' in df.columns else 0)
+price_col = st.selectbox("Select Price Column:", numeric_cols, index=numeric_cols.index('Close') if 'Close' in numeric_cols else 0)
 
-if price_col not in df.columns:
-    st.error(f"CSV must have a '{price_col}' column.")
-    st.stop()
+# Drop rows with missing price values
+df = df.dropna(subset=[price_col])
 
 # -------------------------------
 # With Date Mode
@@ -43,7 +57,8 @@ if mode == "With Date":
         st.error("No date column found. Either upload a CSV with a date column or select 'Without Date' mode.")
         st.stop()
 
-    df[date_col] = pd.to_datetime(df[date_col])
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+    df = df.dropna(subset=[date_col])
     df.set_index(date_col, inplace=True)
 
 # -------------------------------
@@ -54,7 +69,7 @@ else:
     df.set_index('Date', inplace=True)
 
 # -------------------------------
-# Compute Moving Averages
+# Compute Moving Averages and Daily Returns
 # -------------------------------
 df['MA20'] = df[price_col].rolling(20).mean()
 df['MA50'] = df[price_col].rolling(50).mean()
