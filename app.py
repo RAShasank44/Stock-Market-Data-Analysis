@@ -36,7 +36,7 @@ else:
 # -------------------------------
 # Detect price column
 # -------------------------------
-price_candidates = ['Adj Close', 'AdjClose', 'Close', 'close']
+price_candidates = ['Close','Adj Close']
 price_col = None
 for col in price_candidates:
     if col in df.columns:
