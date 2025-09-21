@@ -6,7 +6,7 @@ st.set_page_config(page_title="Stock Market Analysis", layout="wide")
 st.title("📈 Stock Market Analysis Dashboard")
 
 # -------------------------------
-# Sidebar: Data Source
+# Sidebar: Select Data Source
 # -------------------------------
 data_source = st.sidebar.radio("Select Data Source", ["Upload CSV", "Yahoo Finance"])
 
@@ -26,7 +26,7 @@ else:
     def load_data(ticker, start, end):
         data = yf.download(ticker, start=start, end=end)
         data.reset_index(inplace=True)
-        # Flatten MultiIndex columns if present
+        # Flatten MultiIndex if present
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = ['_'.join([str(c) for c in col]).strip() for col in data.columns.values]
         return data
@@ -34,28 +34,38 @@ else:
     df = load_data(ticker, start_date, end_date)
 
 # -------------------------------
-# Ensure correct price column
+# Detect price column
 # -------------------------------
-price_candidates = ['Adj Close', 'AdjClose', 'Close']
+price_candidates = ['Adj Close', 'AdjClose', 'Close', 'close']
 price_col = None
 for col in price_candidates:
     if col in df.columns:
         price_col = col
         break
+
 if price_col is None:
-    st.error("No price column found (Adj Close / AdjClose / Close).")
+    st.error("No price column found. Make sure your CSV has 'Close' or 'Adj Close'.")
     st.stop()
 
 # -------------------------------
-# Ensure Date column exists
+# Detect date column
 # -------------------------------
-if 'Date' in df.columns:
-    df['Date'] = pd.to_datetime(df['Date'])
-else:
-    st.error("No 'Date' column found in dataset.")
+date_candidates = ['Date', 'date', 'DATE']
+date_col = None
+for col in date_candidates:
+    if col in df.columns:
+        date_col = col
+        break
+
+if date_col is None:
+    st.error("No date column found in dataset.")
     st.stop()
 
-df.set_index('Date', inplace=True)
+# -------------------------------
+# Prepare DataFrame
+# -------------------------------
+df[date_col] = pd.to_datetime(df[date_col])
+df.set_index(date_col, inplace=True)
 
 # -------------------------------
 # Compute Daily Returns & Moving Averages
@@ -66,7 +76,7 @@ df['MA50'] = df[price_col].rolling(50).mean()
 df['MA200'] = df[price_col].rolling(200).mean()
 
 # -------------------------------
-# Show raw data
+# Display Raw Data
 # -------------------------------
 st.subheader("Raw Data Preview")
 st.dataframe(df.head())
